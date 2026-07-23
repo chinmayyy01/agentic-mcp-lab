@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
@@ -19,9 +18,15 @@ def _resolve_safe_path(relative_path: str) -> Path:
 @mcp.tool()
 def list_dir(path: str = '.') -> str:
     """
-    List files and the subdirectories inside the given directory path (relative to the sandbox root). Use '.' for the root directory.
+    Lists files and subdirectories inside the given directory path.
+    The path must be relative (e.g. 'projects' or 'projects/subfolder'),
+    never an absolute path starting with '/'. Use '.' to list the root
+    of the allowed sandbox directory.
     """
-    target = _resolve_safe_path(path)
+    try:
+        target = _resolve_safe_path(path)
+    except ValueError as e:
+        return f"Error: {e}. Please use a relative path within the sandbox."
 
     if not target.exists():
         return f"Error: path '{path}' does not exist."
@@ -41,9 +46,14 @@ def list_dir(path: str = '.') -> str:
 @mcp.tool()
 def read_file(path: str) -> str:
     """
-    Reads and returns the text content of a file at a given path (relative to the sandbox root).
+    Reads and returns the text content of a file at the given path.
+    The path must be relative (e.g. 'notes.txt' or 'projects/app.py'),
+    never an absolute path starting with '/'.
     """
-    target = _resolve_safe_path(path)
+    try:
+        target = _resolve_safe_path(path)
+    except ValueError as e:
+        return f"Error: {e}. Please use a relative path within the sandbox."
 
     if not target.exists():
         return f"Error: file '{path}' does not exist."
@@ -58,10 +68,15 @@ def read_file(path: str) -> str:
 @mcp.tool()
 def write_file(path: str, content: str, overwrite: bool = False) -> str:
     """
-    Writes text content to a file at the given path (relative to the sandbox root).
-    Fails if the file already exists unless overwrite=True is explicitly passed.
+    Writes text content to a file at the given path. The path must be
+    relative (e.g. 'notes.txt' or 'projects/new.py'), never an absolute
+    path starting with '/'. Fails if the file already exists unless
+    overwrite=True is explicitly passed.
     """
-    target = _resolve_safe_path(path)
+    try:
+        target = _resolve_safe_path(path)
+    except ValueError as e:
+        return f"Error: {e}. Please use a relative path within the sandbox."
 
     if target.exists() and not overwrite:
         return f"Error: '{path}' already exists. Pass overwrite=True to replace it."
@@ -74,9 +89,13 @@ def write_file(path: str, content: str, overwrite: bool = False) -> str:
 def search_files(query: str, path: str = ".") -> str:
     """
     Recursively searches for files whose name contains the query string,
-    starting from the given directory (relative to the sandbox root).
+    starting from the given directory. The path must be relative
+    (e.g. '.' or 'projects'), never an absolute path starting with '/'.
     """
-    target = _resolve_safe_path(path)
+    try:
+        target = _resolve_safe_path(path)
+    except ValueError as e:
+        return f"Error: {e}. Please use a relative path within the sandbox."
 
     if not target.exists() or not target.is_dir():
         return f"Error: '{path}' is not a valid directory."
