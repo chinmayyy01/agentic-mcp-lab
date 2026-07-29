@@ -1,4 +1,5 @@
 import sqlite3
+import re
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
@@ -62,6 +63,70 @@ def describe_table(table_name: str) -> str:
 
     return "\n".join(lines)
 
+FORBIDDEN_KEYWORDS = {
+    "INSERT", "UPDATE", "DELETE", "DROP", "ALTER",
+    "CREATE", "TRUNCATE", "REPLACE", "ATTACH", "DETACH", "PRAGMA",
+}
+
+MAX_ROWS = 100
+
+def _validate_query_is_safe(query: str) -> str | None:
+    """
+    Checks a SQL query for obviously destructive or write operations.
+    Returns an error message string if unsafe, or None if it looks safe.
+    """
+    stripped = query.strip().rstrip(";")
+
+    if ";" in stripped:
+        return "Only a single SQL statement is allowed per call (no chained statements)."
+    if not stripped.upper().startswith("SELECT"):
+        return "Only SELECT queries are allowed. This tool is strictly read only."
+
+    tokens = re.findall(r"[A-Za-z_]+", stripped.upper())
+    found_forbidden = FORBIDDEN_KEYWORDS.intersection(tokens)
+    if found_forbidden:
+        return f"Query contains forbidden keyword(s): {', '.join(found_forbidden)}. This tool is strictly read-only."
+
+    return None
+
+@mcp.tool()
+def run_query(query: str) -> str:
+    """
+    Executes a read only SQL SELECT query against the database and
+    returns the results. Only SELECT statements are permitted — any
+    write, delete, or schema altering query will be rejected. Results
+    are automatically limited to 100 rows. Use list_tables and
+    describe_table first to understand the schema before writing a query.
+    """
+    error = _validate_query_is_safe(query)
+    if error:
+        return f"Error: {error}"
+
+    conn = _get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(query)
+
+        column_names = [description[0] for description in cur.description]
+        rows = cur.fetchmany(MAX_ROWS)
+    except sqlite3.Error as e:
+        return f"SQL error: {e}"
+    finally:
+        conn.close()
+
+    if not rows:
+        return "Query executed successfully but returned no rows."
+
+    lines = [" | ".join(column_names)]
+    lines.append("-" * len(lines[0]))
+    for row in rows:
+        lines.append(" | ".join(str(value) for value in row))
+
+    result = "\n".join(lines)
+    if len(rows) == MAX_ROWS:
+        result += f"\n\n(Results truncated to {MAX_ROWS} rows.)"
+
+    return result
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
