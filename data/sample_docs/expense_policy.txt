@@ -1,0 +1,4 @@
+Employees may expense meals up to $50 per day while traveling for work.
+All expenses over $100 require manager approval before submission.
+Receipts must be submitted within 14 days of the expense. Reimbursements
+are processed on the 15th and last day of each month.
