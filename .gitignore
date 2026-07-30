@@ -5,3 +5,4 @@ __pycache__/
 .chroma/
 *.db
 .langgraph_api/
+servers/rag_server/chroma_data/
